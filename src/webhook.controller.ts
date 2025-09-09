@@ -12,10 +12,17 @@ export class WebhookController {
     const token = req.query['hub.verify_token'];
     const verifyToken = process.env.VERIFY_TOKEN;
 
+    this.logger.log(`VERIFICATION ATTEMPT:`);
+    this.logger.log(`- mode: ${mode}`);
+    this.logger.log(`- challenge: ${challenge}`);
+    this.logger.log(`- received token: ${token}`);
+    this.logger.log(`- expected token: ${verifyToken}`);
+
     if (mode === 'subscribe' && token === verifyToken) {
-      this.logger.log('WEBHOOK VERIFIED');
+      this.logger.log('✅ WEBHOOK VERIFIED');
       return res.status(HttpStatus.OK).send(challenge);
     }
+    this.logger.log('❌ WEBHOOK VERIFICATION FAILED');
     return res.status(HttpStatus.FORBIDDEN).end();
   }
 
