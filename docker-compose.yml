@@ -37,7 +37,7 @@ services:
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
       - ./ssl:/var/www/html
-    command: certonly --webroot --webroot-path=/var/www/html --email your-email@example.com --agree-tos --no-eff-email --staging -d whatsapp.webhook.primelegal.kz
+    command: certonly --webroot --webroot-path=/var/www/html --email your-email@primelegal.kz --agree-tos --no-eff-email -d whatsapp.webhook.primelegal.kz
 
 volumes:
   certbot-etc:
