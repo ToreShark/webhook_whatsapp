@@ -17,8 +17,8 @@ warnings.filterwarnings("ignore")
 
 load_dotenv()
 
-# LLM
-llm = ChatOpenAI()
+# LLM будет инициализирован в функции
+llm = None
 
 # Load local documents from docs folder
 def load_documents():
@@ -35,13 +35,18 @@ def load_documents():
     return text_splitter.split_documents(all_documents)
 
 
-# Load documents and create vector store
-documents = load_documents()
-vectorstore = Chroma.from_documents(documents=documents, 
-                                  embedding=OpenAIEmbeddings())
+# Global variables for vector store
+vectorstore = None
+retriever = None
 
-# Create the vector store
-retriever = vectorstore.as_retriever()
+def init_vectorstore():
+    """Initialize vector store with OpenAI embeddings"""
+    global vectorstore, retriever
+    if vectorstore is None:
+        documents = load_documents()
+        vectorstore = Chroma.from_documents(documents=documents, 
+                                          embedding=OpenAIEmbeddings())
+        retriever = vectorstore.as_retriever()
 
 
 # 1. DECOMPOSITION
@@ -182,3 +187,21 @@ def query(user_query):
     )
 
     return final_rag_chain.invoke({"question": user_query, "context": context})
+
+
+def process_query(user_query):
+    """Main function to process user query - used by API"""
+    global llm
+    
+    try:
+        # Initialize LLM if not already done
+        if llm is None:
+            llm = ChatOpenAI()
+        
+        # Initialize vectorstore if not already done
+        init_vectorstore()
+        
+        return query(user_query)
+    except Exception as e:
+        print(f"Error in process_query: {str(e)}")
+        return "Извините, произошла ошибка при обработке вашего запроса. Попробуйте еще раз."
