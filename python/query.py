@@ -1,15 +1,13 @@
 import glob
 from dotenv import load_dotenv
 from operator import itemgetter
-from langchain.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.schema.output_parser import StrOutputParser
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
-from langchain.vectorstores import Chroma
-from langchain.llms.openai import OpenAI
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from utils import format_qa_pair, format_qa_pairs
 
 from colorama import Fore
