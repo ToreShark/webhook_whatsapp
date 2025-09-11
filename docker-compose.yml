@@ -10,6 +10,24 @@ services:
       - PORT=3000
       - VERIFY_TOKEN=primelegal_whatsapp_2025
       - ACCESS_TOKEN=EAAS0Lu4TybsBPVeYFoODDXRMtXZAEDGPX6s0Gxeecbrv2XCy65xBaAV2zpBfGxRepPhr7CfNpHuV5ZA1rJMv0Gx0FTH1URuTvFFRMGGckNW0PzNlOYDZACJKKfTgPzUq9avJl4onj3JWZAn7N7DhFIOAsuaUUGvdUzPjXwhT4IRFiBue0h8GH7PJIpHfsTMeEwZDZD
+      - MONGODB_URI=mongodb+srv://new_user_blya:2AKHOE1lpZYSoPru@cluster0.lgtepjy.mongodb.net/whatsapp_bankruptcy_bot?retryWrites=true&w=majority
+      - PYTHON_RAG_URL=http://python-rag:8000
+    networks:
+      - whatsapp-network
+    depends_on:
+      - python-rag
+
+  python-rag:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: python-rag
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=mongodb+srv://new_user_blya:2AKHOE1lpZYSoPru@cluster0.lgtepjy.mongodb.net/whatsapp_bankruptcy_bot?retryWrites=true&w=majority
+    volumes:
+      - ./python/docs:/app/docs
     networks:
       - whatsapp-network
 
