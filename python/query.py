@@ -1,7 +1,6 @@
 
 import os
 from dotenv import load_dotenv
-from langchain import hub
 from operator import itemgetter
 from langchain_community.document_loaders import TextLoader, DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -112,8 +111,11 @@ def generate_qa_pairs(sub_questions):
 
 # 3. ANSWER INDIVIDUALY
 
-# RAG prompt = https://smith.langchain.com/hub/rlm/rag-prompt
-prompt_rag = hub.pull("rlm/rag-prompt")
+# RAG prompt - local version instead of hub
+prompt_rag = ChatPromptTemplate.from_template("""You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
+Question: {question} 
+Context: {context} 
+Answer:""")
 
 
 def retrieve_and_rag(prompt_rag, sub_questions):
