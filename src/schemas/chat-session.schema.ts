@@ -17,15 +17,33 @@ export class ChatSession {
 
   @Prop({ type: Object, default: {} })
   context!: {
+    // Обязательные поля для принятия решения
     debtAmount?: number;
-    hasIncome?: boolean;
-    incomeAmount?: number;
-    incomeStable?: boolean;
     hasOverdue12Months?: boolean;
+    monthlyIncome?: number;
+    employmentType?: string; // "official" | "unofficial" | "government" | "retired" | "unemployed" | "self_employed"
+    
+    // Важные уточняющие поля
+    incomeStability?: string; // "stable" | "unstable"
+    hasProperty?: boolean;
+    hasCar?: boolean;
+    hasCollateral?: boolean;
+    collateralType?: string; // "mortgage" | "auto_loan" | "other"
+    creditorsCount?: number;
+    
+    // Специальные ситуации
+    hasCollectorPressure?: boolean;
+    hasAccountArrest?: boolean;
+    hasWageArrest?: boolean;
+    previousRejection?: boolean;
+    
+    // Системные поля
     questionsAsked: string[];
     answersReceived: Record<string, any>;
-    userIntent?: string;
+    userIntent?: string; // "eligibility_check" | "how_to_start" | "documentation" | "consequences" | "specific_problem"
     currentTopic?: string;
+    lastExtraction?: Record<string, any>;
+    collectionPhase?: string; // "collecting" | "analyzing" | "complete"
   };
 
   @Prop({ type: Array, default: [] })
