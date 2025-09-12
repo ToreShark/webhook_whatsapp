@@ -60,15 +60,6 @@ export class WebhookController {
       
       // Сохраняем сообщение пользователя в историю
       await this.chatSessionService.addToHistory(whatsappId, message, 'user');
-      
-      // Проверяем команды сброса
-      if (message.toLowerCase() === '/start' || message.toLowerCase() === 'начать сначала') {
-        await this.chatSessionService.resetSession(whatsappId);
-        await this.sendWhatsAppMessage(whatsappId, 
-          'Добрый день! Я помощник адвоката Мухтарова Торехана по вопросам банкротства.\n\nЧем могу помочь?'
-        );
-        return;
-      }
 
       // Отправляем запрос в Python RAG
       const pythonRagUrl = process.env.PYTHON_RAG_URL || 'http://python-rag:8000';

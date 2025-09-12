@@ -31,7 +31,7 @@ def load_documents():
         documents = loader.load()
         all_documents.extend(documents)
     
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    text_splitter = CharacterTextSplitter(chunk_size=2500, chunk_overlap=200)
     return text_splitter.split_documents(all_documents)
 
 
@@ -69,9 +69,7 @@ def generate_sub_questions(query):
 
     # Run
     sub_questions = generate_queries_decomposition.invoke({"question": query})
-    questions_str = "\n".join(sub_questions)
-    print(Fore.MAGENTA + "=====  ПОДВОПРОСЫ: =====" + Fore.RESET)
-    print(Fore.WHITE + questions_str + Fore.RESET + "\n")
+    # Убрали вывод подвопросов
     return sub_questions 
       
 
