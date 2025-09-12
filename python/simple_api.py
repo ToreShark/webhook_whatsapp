@@ -74,6 +74,18 @@ async def chat_endpoint(request: ChatRequest):
             user_intent
         )
         
+        # Проверяем, не является ли это follow-up вопросом после ответа
+        if session_state == "answered" and _is_followup_question(user_message):
+            # Пользователь спрашивает "что дальше" после получения ответа
+            followup_response = _handle_followup_question(user_message, updated_context)
+            
+            return ChatResponse(
+                response=followup_response["response"],
+                session_state="offering_product",
+                context_updates=updated_context,
+                completion_status={"has_sufficient_info": True, "offering_products": True}
+            )
+        
         if completion_status["has_sufficient_info"]:
             # У нас достаточно информации - генерируем финальный ответ
             
@@ -230,6 +242,72 @@ async def health_check():
 @app.get("/")
 async def root():
     return {"message": "Interactive RAG API for WhatsApp Bankruptcy Bot with Smart Dialogue"}
+
+def _is_followup_question(message: str) -> bool:
+    """Определяет, является ли сообщение follow-up вопросом после ответа"""
+    message_lower = message.lower()
+    
+    followup_patterns = [
+        "что дальше", "что потом", "что после", "после банкротства",
+        "что делать дальше", "что делать потом", "что делать после",
+        "следующий шаг", "дальнейшие действия", "план действий",
+        "куда обращаться", "где получить помощь", "нужна консультация",
+        "хочу консультацию", "помогите", "посоветуйте"
+    ]
+    
+    return any(pattern in message_lower for pattern in followup_patterns)
+
+def _handle_followup_question(message: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    """Обрабатывает follow-up вопросы и предлагает продукты/услуги"""
+    message_lower = message.lower()
+    
+    # Анализируем контекст пользователя для персонализированного предложения
+    debt_amount = context.get('debtAmount', 0)
+    employment_type = context.get('employmentType', '')
+    has_property = context.get('hasProperty', False)
+    
+    response_parts = []
+    
+    if any(word in message_lower for word in ["что дальше", "что потом", "план действий"]):
+        response_parts.append("Теперь, когда вы понимаете свою ситуацию с банкротством, рекомендую следующие шаги:")
+        
+        if debt_amount and debt_amount > 1000000:  # Более 1 млн
+            response_parts.append("\n🎯 Учитывая значительную сумму долга, важно действовать по четкому плану.")
+        
+        response_parts.append("\n📋 Рекомендованный план действий:")
+        response_parts.append("1️⃣ Получите персональную консультацию юриста")
+        response_parts.append("2️⃣ Изучите процедуру банкротства подробнее") 
+        response_parts.append("3️⃣ Подготовьте необходимые документы")
+        
+    elif any(word in message_lower for word in ["консультация", "помощь", "посоветуйте"]):
+        response_parts.append("Я готов помочь вам с дальнейшими шагами!")
+        response_parts.append("\n📞 Для персонального плана действий рекомендую:")
+        
+    else:
+        response_parts.append("Отлично! Теперь можно переходить к практическим шагам.")
+    
+    # Добавляем предложение услуг
+    response_parts.append("\n" + "="*40)
+    response_parts.append("🎁 СПЕЦИАЛЬНЫЕ ПРЕДЛОЖЕНИЯ:")
+    response_parts.append("")
+    response_parts.append("✅ БЕСПЛАТНАЯ консультация")
+    response_parts.append("   → Персональный разбор вашей ситуации")
+    response_parts.append("   → План действий на 30 дней")
+    response_parts.append("")
+    response_parts.append("📚 Полный курс по банкротству")
+    response_parts.append("   → Пошаговые инструкции")
+    response_parts.append("   → Образцы документов") 
+    response_parts.append("   → Поддержка экспертов")
+    response_parts.append("")
+    response_parts.append("📖 Учебник по банкротству в Казахстане")
+    response_parts.append("   → Все законы и процедуры")
+    response_parts.append("   → Реальные кейсы")
+    response_parts.append("   → Актуальная информация 2024")
+    
+    return {
+        "response": "".join(response_parts),
+        "offer_products": True
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

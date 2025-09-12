@@ -90,11 +90,9 @@ export class WebhookController {
         await this.chatSessionService.updateContext(whatsappId, ragResponse.context_updates);
       }
       
-      // Сохраняем вопросы если есть
-      if (ragResponse.questions && ragResponse.questions.length > 0) {
-        for (const question of ragResponse.questions) {
-          await this.chatSessionService.addQuestionAsked(whatsappId, question);
-        }
+      // Сохраняем заданный вопрос если есть
+      if (ragResponse.next_question) {
+        await this.chatSessionService.addQuestionAsked(whatsappId, ragResponse.next_question);
       }
       
       // Отправляем ответ пользователю
@@ -103,12 +101,9 @@ export class WebhookController {
       // Сохраняем ответ бота в историю
       await this.chatSessionService.addToHistory(whatsappId, ragResponse.response, 'bot');
       
-      // Если предлагаются продукты, отправляем ссылки
-      if (ragResponse.offer_products && ragResponse.product_links) {
-        const linksMessage = this.formatProductLinks(ragResponse.product_links);
-        if (linksMessage) {
-          await this.sendWhatsAppMessage(whatsappId, linksMessage);
-        }
+      // Логируем статус завершения для отладки
+      if (ragResponse.completion_status) {
+        this.logger.log(`Completion status for ${whatsappId}:`, ragResponse.completion_status);
       }
       
     } catch (error) {
@@ -119,22 +114,6 @@ export class WebhookController {
     }
   }
 
-  private formatProductLinks(links: Record<string, string>): string {
-    if (!links || Object.keys(links).length === 0) return '';
-    
-    let message = '\n📚 Полезные ссылки:\n';
-    if (links.consultation) {
-      message += `\n✅ Бесплатная консультация: ${links.consultation}`;
-    }
-    if (links.course) {
-      message += `\n📖 Курс по банкротству: ${links.course}`;
-    }
-    if (links.textbook) {
-      message += `\n📗 Учебник по банкротству: ${links.textbook}`;
-    }
-    
-    return message;
-  }
 
   private async sendWhatsAppMessage(to: string, text: string) {
     const accessToken = process.env.ACCESS_TOKEN;

@@ -18,15 +18,33 @@ export class ChatSessionService {
         whatsappId,
         sessionState: 'initial',
         context: {
+          // Обязательные поля для принятия решения
           debtAmount: null,
-          hasIncome: null,
-          incomeAmount: null,
-          incomeStable: null,
           hasOverdue12Months: null,
+          monthlyIncome: null,
+          employmentType: null,
+          
+          // Важные уточняющие поля
+          incomeStability: null,
+          hasProperty: null,
+          hasCar: null,
+          hasCollateral: null,
+          collateralType: null,
+          creditorsCount: null,
+          
+          // Специальные ситуации
+          hasCollectorPressure: null,
+          hasAccountArrest: null,
+          hasWageArrest: null,
+          previousRejection: null,
+          
+          // Системные поля
           questionsAsked: [],
           answersReceived: {},
           userIntent: null,
-          currentTopic: null
+          currentTopic: null,
+          lastExtraction: null,
+          collectionPhase: null
         },
         history: [],
         lastActivity: new Date()
@@ -127,15 +145,33 @@ export class ChatSessionService {
         $set: {
           sessionState: 'initial',
           context: {
+            // Обязательные поля для принятия решения
             debtAmount: null,
-            hasIncome: null,
-            incomeAmount: null,
-            incomeStable: null,
             hasOverdue12Months: null,
+            monthlyIncome: null,
+            employmentType: null,
+            
+            // Важные уточняющие поля
+            incomeStability: null,
+            hasProperty: null,
+            hasCar: null,
+            hasCollateral: null,
+            collateralType: null,
+            creditorsCount: null,
+            
+            // Специальные ситуации
+            hasCollectorPressure: null,
+            hasAccountArrest: null,
+            hasWageArrest: null,
+            previousRejection: null,
+            
+            // Системные поля
             questionsAsked: [],
             answersReceived: {},
             userIntent: null,
-            currentTopic: null
+            currentTopic: null,
+            lastExtraction: null,
+            collectionPhase: null
           },
           history: [],
           lastActivity: new Date()
