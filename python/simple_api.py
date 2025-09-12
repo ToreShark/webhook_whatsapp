@@ -59,10 +59,6 @@ async def chat_endpoint(request: ChatRequest):
         session_state = request.session_state
         
         # 1. Извлекаем данные из сообщения пользователя
-        print(f"[DEBUG] Processing message: '{user_message}' for {whatsapp_id}")
-        print(f"[DEBUG] Current session state: {session_state}")
-        print(f"[DEBUG] Existing context: {existing_context}")
-        
         extraction_result = data_extractor.extract_data(user_message, existing_context)
         
         # 2. Обновляем контекст новыми данными
@@ -70,9 +66,6 @@ async def chat_endpoint(request: ChatRequest):
             existing_context, 
             extraction_result
         )
-        
-        print(f"[DEBUG] Extraction result: {extraction_result}")
-        print(f"[DEBUG] Updated context: {updated_context}")
         
         # 3. Определяем намерение пользователя
         user_intent = extraction_result.get("intent", "eligibility_check")
