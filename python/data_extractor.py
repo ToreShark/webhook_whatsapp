@@ -34,6 +34,7 @@ class DataExtractor:
    - "пенсионер" → employmentType: "retired"
    - "безработный", "не работаю" → employmentType: "unemployed"
    - "ИП", "предприниматель" → employmentType: "self_employed"
+   - "в декрете", "декретный отпуск", "сижу с ребенком", "в декрете с ребенком" → employmentType: "maternity_leave", monthlyIncome: 70000
 
 4. ДОХОДЫ:
    - Извлекай числовые значения доходов
@@ -48,7 +49,7 @@ class DataExtractor:
 
 6. СПЕЦИАЛЬНЫЕ СИТУАЦИИ:
    - "коллекторы звонят" → hasCollectorPressure: true
-   - "арестован счет", "заблокировали карту" → hasAccountArrest: true  
+   - "арестован счет", "заблокировали карту", "ЧСИ арестовал счета", "ЧСИ заблокировал" → hasAccountArrest: true  
    - "удерживают с зарплаты" → hasWageArrest: true
    - "отказ пришел", "отклонили заявление" → previousRejection: true
 

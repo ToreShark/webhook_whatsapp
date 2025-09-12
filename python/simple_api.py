@@ -5,6 +5,7 @@ import uvicorn
 from langchain_openai import ChatOpenAI
 from data_extractor import DataExtractor
 from question_prioritizer import QuestionPrioritizer
+from dialogue_generator import DialogueGenerator
 from query import process_query, init_vectorstore
 import os
 
@@ -14,14 +15,16 @@ app = FastAPI(title="Interactive RAG API for WhatsApp Bot")
 llm = None
 data_extractor = None
 question_prioritizer = None
+dialogue_generator = None
 
 def init_components():
     """Initialize LLM and other components"""
-    global llm, data_extractor, question_prioritizer
+    global llm, data_extractor, question_prioritizer, dialogue_generator
     if llm is None:
-        llm = ChatOpenAI()
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
         data_extractor = DataExtractor(llm)
         question_prioritizer = QuestionPrioritizer()
+        dialogue_generator = DialogueGenerator(llm)
         init_vectorstore()
 
 class SimpleRequest(BaseModel):
@@ -56,6 +59,10 @@ async def chat_endpoint(request: ChatRequest):
         session_state = request.session_state
         
         # 1. Извлекаем данные из сообщения пользователя
+        print(f"[DEBUG] Processing message: '{user_message}' for {whatsapp_id}")
+        print(f"[DEBUG] Current session state: {session_state}")
+        print(f"[DEBUG] Existing context: {existing_context}")
+        
         extraction_result = data_extractor.extract_data(user_message, existing_context)
         
         # 2. Обновляем контекст новыми данными
@@ -63,6 +70,9 @@ async def chat_endpoint(request: ChatRequest):
             existing_context, 
             extraction_result
         )
+        
+        print(f"[DEBUG] Extraction result: {extraction_result}")
+        print(f"[DEBUG] Updated context: {updated_context}")
         
         # 3. Определяем намерение пользователя
         user_intent = extraction_result.get("intent", "eligibility_check")
@@ -120,20 +130,23 @@ async def chat_endpoint(request: ChatRequest):
             )
             
             if next_question_data:
-                # Формируем ответ с благодарностью за предоставленную информацию
-                response_parts = []
-                
-                # Благодарим за новую информацию если что-то было извлечено
-                extracted_data = extraction_result.get("extracted_data", {})
-                new_info = [k for k, v in extracted_data.items() if v is not None]
-                
-                if new_info:
-                    response_parts.append("Спасибо за информацию!")
-                
-                # Добавляем следующий вопрос
-                response_parts.append(next_question_data["question"])
-                
-                response = " ".join(response_parts)
+                # Проверяем, нужно ли приветствие для первого контакта
+                if dialogue_generator.should_use_greeting(session_state, existing_context):
+                    # Первый контакт - генерируем приветствие с первым вопросом
+                    response = dialogue_generator.generate_greeting(
+                        user_message, 
+                        next_question_data["question"]
+                    )
+                else:
+                    # Обычный переход - генерируем естественный переход
+                    extracted_data = extraction_result.get("extracted_data", {})
+                    new_extracted = {k: v for k, v in extracted_data.items() if v is not None}
+                    
+                    response = dialogue_generator.generate_transition(
+                        user_message,
+                        new_extracted, 
+                        next_question_data["question"]
+                    )
                 
                 return ChatResponse(
                     response=response,
@@ -235,7 +248,8 @@ async def health_check():
         "components": {
             "llm_initialized": llm is not None,
             "extractor_initialized": data_extractor is not None,
-            "prioritizer_initialized": question_prioritizer is not None
+            "prioritizer_initialized": question_prioritizer is not None,
+            "dialogue_generator_initialized": dialogue_generator is not None
         }
     }
 

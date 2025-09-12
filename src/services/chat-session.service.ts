@@ -22,7 +22,7 @@ export class ChatSessionService {
           debtAmount: null,
           hasOverdue12Months: null,
           monthlyIncome: null,
-          employmentType: null,
+          employmentType: null, // "official" | "unofficial" | "government" | "retired" | "unemployed" | "self_employed" | "maternity_leave"
           
           // Важные уточняющие поля
           incomeStability: null,
@@ -149,7 +149,7 @@ export class ChatSessionService {
             debtAmount: null,
             hasOverdue12Months: null,
             monthlyIncome: null,
-            employmentType: null,
+            employmentType: null, // "official" | "unofficial" | "government" | "retired" | "unemployed" | "self_employed" | "maternity_leave"
             
             // Важные уточняющие поля
             incomeStability: null,

@@ -21,7 +21,7 @@ export class ChatSession {
     debtAmount?: number;
     hasOverdue12Months?: boolean;
     monthlyIncome?: number;
-    employmentType?: string; // "official" | "unofficial" | "government" | "retired" | "unemployed" | "self_employed"
+    employmentType?: string; // "official" | "unofficial" | "government" | "retired" | "unemployed" | "self_employed" | "maternity_leave"
     
     // Важные уточняющие поля
     incomeStability?: string; // "stable" | "unstable"
