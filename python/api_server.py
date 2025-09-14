@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
-from query import query
+from query import query, extract_info_from_message, check_missing_info, generate_contextual_question, has_sufficient_info
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -26,22 +26,55 @@ class ChatResponse(BaseModel):
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
-    Endpoint для обработки сообщений от WhatsApp
+    Endpoint для обработки сообщений от WhatsApp с интеллектуальным извлечением информации
     """
     try:
         logger.info(f"Received message from {request.whatsapp_id}: {request.message}")
         
-        # Обрабатываем сообщение через RAG с локальными документами
-        rag_response = query(request.message)
+        # 1. Извлекаем информацию из сообщения и обновляем контекст
+        updated_context = extract_info_from_message(request.message, request.context)
+        logger.info(f"Updated context: {updated_context}")
         
-        # Формируем ответ
-        response = ChatResponse(
-            response=rag_response,
-            session_state="active",
-            context_updates={},
-            next_question=None,
-            completion_status=None
-        )
+        # 2. Проверяем достаточно ли информации для финального ответа
+        if has_sufficient_info(updated_context):
+            # У нас есть вся необходимая информация - генерируем финальный ответ через RAG
+            
+            # Создаем контекстуальный запрос для RAG
+            context_query = f"""
+            Консультация по банкротству для клиента со следующими данными:
+            - Сумма долга: {updated_context.get('debt_amount', 'не указана')} тенге
+            - Срок просрочки: {updated_context.get('overdue_months', 'не указан')} месяцев
+            - Официальный доход: {'есть' if updated_context.get('has_income') else 'нет' if updated_context.get('has_income') is False else 'не указан'}
+            - Недвижимость: {'есть' if updated_context.get('has_property') else 'нет' if updated_context.get('has_property') is False else 'не указана'}
+            - Автомобиль: {'есть' if updated_context.get('has_car') else 'нет' if updated_context.get('has_car') is False else 'не указан'}
+            
+            Исходное сообщение клиента: {request.message}
+            
+            Дай подробную консультацию по банкротству с учетом всех данных клиента.
+            """
+            
+            rag_response = query(context_query)
+            
+            response = ChatResponse(
+                response=rag_response,
+                session_state="answered",
+                context_updates=updated_context,
+                next_question=None,
+                completion_status="complete"
+            )
+        
+        else:
+            # Нужно задать уточняющий вопрос
+            missing_info = check_missing_info(updated_context)
+            next_question = generate_contextual_question(missing_info, updated_context)
+            
+            response = ChatResponse(
+                response=next_question,
+                session_state="collecting_info",
+                context_updates=updated_context,
+                next_question=next_question,
+                completion_status="collecting"
+            )
         
         logger.info(f"Sending response to {request.whatsapp_id}: {response.response[:100]}...")
         return response
