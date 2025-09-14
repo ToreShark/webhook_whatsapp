@@ -14,11 +14,11 @@ class ChatRequest(BaseModel):
     whatsapp_id: str
     message: str
     context: Optional[Dict[str, Any]] = {}
-    session_state: Optional[str] = "active"
+    session_state: Optional[str] = "initial"
 
 class ChatResponse(BaseModel):
     response: str
-    session_state: str = "active"
+    session_state: str = "initial"  # Changed from "active" to "initial"
     context_updates: Dict[str, Any] = {}
     next_question: Optional[str] = None
     completion_status: Optional[str] = None
