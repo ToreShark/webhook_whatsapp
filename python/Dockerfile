@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем весь код
 COPY . .
 
+# Копируем папку docs из родительской директории
+COPY ../docs ./docs
+
 # Открываем порт
 EXPOSE 8000
 
