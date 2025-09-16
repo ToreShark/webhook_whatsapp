@@ -289,15 +289,9 @@ prompt = ChatPromptTemplate.from_template(template)
 
 
 # Query
-def query(query):
+def query(user_query):
     # generate optimized answer for a given query using the improved subqueries
-    question = "What are the main components of an LLM-powered autonomous agent system?"
-    queries = [
-        "How is context improving AI systems",
-        "What are the two main components involved in Basic Reflection",
-        "Explain the steps involved in the Reflexion loop"
-    ]
-    sub_questions = generate_sub_questions(query)
+    sub_questions = generate_sub_questions(user_query)
     generate_qa_pairs(sub_questions)
     answers, questions = retrieve_and_rag(prompt_rag, sub_questions)
     context = format_qa_pairs(questions, answers)
@@ -308,6 +302,6 @@ def query(query):
         | StrOutputParser()
     )
 
-    return final_rag_chain.invoke({"question": question, "context": context})
+    return final_rag_chain.invoke({"question": user_query, "context": context})
 
     
