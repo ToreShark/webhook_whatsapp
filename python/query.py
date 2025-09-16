@@ -252,11 +252,12 @@ def generate_qa_pairs(sub_questions):
 
 # 3. ANSWER INDIVIDUALY
 
-# RAG prompt - local version instead of hub
-prompt_rag = ChatPromptTemplate.from_template("""You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
-Question: {question} 
-Context: {context} 
-Answer:""")
+# RAG prompt - local version in Russian
+prompt_rag = ChatPromptTemplate.from_template("""Ты эксперт-консультант по банкротству в Казахстане. Используй предоставленный контекст для ответа на вопрос пользователя. Если не знаешь ответ, просто скажи, что не знаешь. Отвечай на русском языке четко и по делу.
+
+Вопрос: {question} 
+Контекст: {context} 
+Ответ:""")
 
 
 def retrieve_and_rag(prompt_rag, sub_questions):
@@ -277,13 +278,14 @@ def retrieve_and_rag(prompt_rag, sub_questions):
     
 # SUMMARIZE AND ANSWER 
 
-# Prompt
-template = """Here is a set of Q+A pairs:
+# Prompt for final answer synthesis
+template = """Используй следующие пары вопрос-ответ для создания итогового ответа на русском языке:
 
 {context}
 
-to use these to synthesize an answer to the question: {question}
-"""
+На основе этой информации ответь на вопрос: {question}
+
+Отвечай как эксперт по банкротству в Казахстане на русском языке."""
 
 prompt = ChatPromptTemplate.from_template(template)
 
