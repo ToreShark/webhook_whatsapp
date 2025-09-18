@@ -1,12 +1,21 @@
-import { Controller, Get, Post, Req, Res, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Req, Res, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ChatSessionService } from './services/chat-session.service';
+import { ConsultationSlotService } from './services/consultation-slot.service';
 
 @Controller()
-export class WebhookController {
+export class WebhookController implements OnModuleInit {
   private readonly logger = new Logger(WebhookController.name);
   
-  constructor(private readonly chatSessionService: ChatSessionService) {}
+  constructor(
+    private readonly chatSessionService: ChatSessionService,
+    private readonly consultationSlotService: ConsultationSlotService
+  ) {}
+
+  async onModuleInit() {
+    // Инициализируем слоты при запуске приложения
+    await this.consultationSlotService.initializeSlots();
+  }
 
   @Get()
   verify(@Req() req: Request, @Res() res: Response) {
