@@ -64,16 +64,23 @@ def extract_info_from_message(message, existing_context=None):
 - debt_amount: сумма долга в тенге (число без текста, например 5000000)
 - overdue_months: срок просрочки в месяцах (число)
 - has_income: есть ли официальный доход (true/false/null если не указано)
-- has_property: есть ли недвижимость, квартира, дом (true/false/null)
+- has_property: есть ли недвижимость, квартира, дом (true если есть, false если нет/арендует/снимает)
 - has_car: есть ли машина, автомобиль (true/false/null)
 - employment_type: тип занятости (pension/government/unemployed/self_employed/null)
 - intent: что хочет пользователь (bankruptcy_check/procedure_info/consultation/null)
 
+ВАЖНО: Если пользователь отвечает "нет" на вопрос о недвижимости или говорит про аренду - это has_property: false
+
 Примеры:
 "долг 5 млн" -> {{"debt_amount": 5000000}}
+"три миллиона тенге" -> {{"debt_amount": 3000000}}
 "не плачу год" -> {{"overdue_months": 12}}
 "работы нет" -> {{"has_income": false, "employment_type": "unemployed"}}
+"работаю на яндекс такси" -> {{"has_income": true, "employment_type": "self_employed"}}
 "есть квартира" -> {{"has_property": true}}
+"нет арендное жилье" -> {{"has_property": false}}
+"снимаю квартиру" -> {{"has_property": false}}
+"нет недвижимости" -> {{"has_property": false}}
 
 Сообщение пользователя: {message}
 
