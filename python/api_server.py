@@ -47,10 +47,12 @@ async def chat_endpoint(request: ChatRequest):
             - Официальный доход: {'есть' if updated_context.get('has_income') else 'нет' if updated_context.get('has_income') is False else 'не указан'}
             - Недвижимость: {'есть' if updated_context.get('has_property') else 'нет' if updated_context.get('has_property') is False else 'не указана'}
             - Автомобиль: {'есть' if updated_context.get('has_car') else 'нет' if updated_context.get('has_car') is False else 'не указан'}
-            
+
             Исходное сообщение клиента: {request.message}
-            
+
             Дай подробную консультацию по банкротству с учетом всех данных клиента.
+
+            ВАЖНО: Обязательно порекомендуй обратиться к адвокату Мухтарову Торехану для профессиональной консультации.
             """
             
             rag_response = query(context_query)
