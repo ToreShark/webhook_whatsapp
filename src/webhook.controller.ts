@@ -52,18 +52,25 @@ export class WebhookController implements OnModuleInit {
       
       // Проверяем тип сообщения - текст или кнопка
       let messageBody = '';
+      let isHandled = false;
+
       if (message.text?.body) {
         messageBody = message.text.body; // обычное текстовое сообщение
       } else if (message.interactive?.button_reply) {
         // Нажатие на Quick Reply кнопку
         const buttonId = message.interactive.button_reply.id;
-        messageBody = this.handleButtonClick(buttonId);
+        isHandled = await this.handleButtonClick(buttonId, from);
+
+        // Если кнопка не была обработана напрямую, получаем сообщение для RAG
+        if (!isHandled) {
+          messageBody = this.getButtonMessage(buttonId);
+        }
       }
 
-      this.logger.log(`Message from ${from}: ${messageBody}`);
+      this.logger.log(`Message from ${from}: ${messageBody || 'Button handled directly'}`);
 
-      // Обрабатываем сообщение через RAG
-      if (messageBody) {
+      // Обрабатываем сообщение через RAG только если не обработали напрямую
+      if (messageBody && !isHandled) {
         await this.processMessage(from, messageBody);
       }
     }
@@ -71,10 +78,25 @@ export class WebhookController implements OnModuleInit {
     return res.status(HttpStatus.OK).end();
   }
 
-  private handleButtonClick(buttonId: string): string {
+  private async handleButtonClick(buttonId: string, whatsappId: string): Promise<boolean> {
+    // Если это кнопка записи на консультацию - обрабатываем отдельно
+    if (buttonId === 'consultation_btn') {
+      await this.handleConsultationRequest(whatsappId);
+      return true; // Обработали, не нужно передавать в RAG
+    }
+
+    // Если это выбор слота - обрабатываем бронирование
+    if (buttonId.startsWith('slot_')) {
+      await this.handleSlotBooking(whatsappId, buttonId);
+      return true; // Обработали, не нужно передавать в RAG
+    }
+
+    // Для остальных кнопок возвращаем false, чтобы передать в RAG
+    return false;
+  }
+
+  private getButtonMessage(buttonId: string): string {
     switch (buttonId) {
-      case 'consultation_btn':
-        return 'Хочу записаться на консультацию';
       case 'course_btn':
         return 'Хочу купить курс по банкротству';
       case 'more_info_btn':
@@ -231,6 +253,123 @@ export class WebhookController implements OnModuleInit {
       this.logger.log('WhatsApp message with buttons sent:', result);
     } catch (error) {
       this.logger.error('Error sending WhatsApp message with buttons:', error);
+    }
+  }
+
+  // Обработка запроса на консультацию
+  private async handleConsultationRequest(whatsappId: string) {
+    try {
+      // Получаем доступные слоты на ближайший день
+      const availableDay = await this.consultationSlotService.getSlotsForNearestAvailableDay();
+
+      if (!availableDay) {
+        await this.sendWhatsAppMessage(
+          whatsappId,
+          'К сожалению, в ближайшее время нет свободных слотов для консультации. Попробуйте позже.'
+        );
+        return;
+      }
+
+      // Формируем сообщение со слотами
+      let message = `📅 Доступные слоты на консультацию\n\n${availableDay.dateString}\n\nВыберите удобное время:`;
+
+      // Создаем кнопки для каждого слота
+      const buttons = availableDay.slots.map((slot, index) => ({
+        type: 'reply',
+        reply: {
+          id: slot.slotId,
+          title: `${slot.startTime}-${slot.endTime}`
+        }
+      }));
+
+      await this.sendWhatsAppMessageWithSlotButtons(whatsappId, message, buttons);
+
+    } catch (error) {
+      this.logger.error('Error handling consultation request:', error);
+      await this.sendWhatsAppMessage(
+        whatsappId,
+        'Произошла ошибка при получении доступных слотов. Попробуйте позже.'
+      );
+    }
+  }
+
+  // Обработка бронирования слота
+  private async handleSlotBooking(whatsappId: string, slotId: string) {
+    try {
+      // Пытаемся забронировать слот
+      const bookedSlot = await this.consultationSlotService.bookSlot(
+        slotId,
+        whatsappId,
+        'session_' + Date.now() // временный ID сессии
+      );
+
+      if (bookedSlot) {
+        const slotTime = this.consultationSlotService.formatSlotForDisplay(bookedSlot);
+        await this.sendWhatsAppMessage(
+          whatsappId,
+          `✅ Отлично! Вы записаны на консультацию:\n\n📅 ${slotTime}\n\nМы свяжемся с вами за день до консультации для подтверждения. Если у вас есть вопросы, напишите нам.`
+        );
+      } else {
+        await this.sendWhatsAppMessage(
+          whatsappId,
+          '❌ К сожалению, этот слот уже занят. Попробуйте выбрать другое время.'
+        );
+      }
+
+    } catch (error) {
+      this.logger.error('Error booking slot:', error);
+      await this.sendWhatsAppMessage(
+        whatsappId,
+        'Произошла ошибка при бронировании. Попробуйте еще раз.'
+      );
+    }
+  }
+
+  // Отправка сообщения с кнопками слотов
+  private async sendWhatsAppMessageWithSlotButtons(to: string, text: string, buttons: any[]) {
+    const accessToken = process.env.ACCESS_TOKEN;
+    const phoneNumberId = '818293204692583';
+
+    try {
+      // WhatsApp поддерживает максимум 3 кнопки за раз
+      // Если слотов больше, отправляем по частям
+      const buttonChunks = [];
+      for (let i = 0; i < buttons.length; i += 3) {
+        buttonChunks.push(buttons.slice(i, i + 3));
+      }
+
+      for (let chunkIndex = 0; chunkIndex < buttonChunks.length; chunkIndex++) {
+        const chunk = buttonChunks[chunkIndex];
+        const chunkMessage = chunkIndex === 0 ? text : `Продолжение (часть ${chunkIndex + 1}):`;
+
+        const response = await fetch(`https://graph.facebook.com/v23.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'interactive',
+            interactive: {
+              type: 'button',
+              body: {
+                text: chunkMessage
+              },
+              action: {
+                buttons: chunk
+              }
+            }
+          }),
+        });
+
+        const result = await response.json();
+        this.logger.log(`WhatsApp slot buttons sent (chunk ${chunkIndex + 1}):`, result);
+      }
+
+    } catch (error) {
+      this.logger.error('Error sending WhatsApp message with slot buttons:', error);
     }
   }
 }

@@ -98,10 +98,10 @@ export class ConsultationSlotService implements OnModuleInit {
   async getAvailableSlots(days: number = 7): Promise<ConsultationSlotDocument[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const endDate = new Date(today);
     endDate.setDate(today.getDate() + days);
-    
+
     return await this.consultationSlotModel
       .find({
         date: {
@@ -112,6 +112,49 @@ export class ConsultationSlotService implements OnModuleInit {
       })
       .sort({ date: 1, startTime: 1 })
       .exec();
+  }
+
+  // Метод для получения слотов на ближайший доступный день
+  async getSlotsForNearestAvailableDay(): Promise<{
+    date: Date;
+    slots: ConsultationSlotDocument[];
+    dateString: string;
+  } | null> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Ищем слоты на ближайшие 30 дней
+    for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + dayOffset);
+
+      // Находим доступные слоты на эту дату
+      const availableSlots = await this.consultationSlotModel
+        .find({
+          date: targetDate,
+          status: 'open'
+        })
+        .sort({ startTime: 1 })
+        .exec();
+
+      // Если есть доступные слоты, возвращаем их
+      if (availableSlots.length > 0) {
+        const dateString = targetDate.toLocaleDateString('ru-RU', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        return {
+          date: targetDate,
+          slots: availableSlots,
+          dateString
+        };
+      }
+    }
+
+    return null; // Нет доступных слотов в ближайшие 30 дней
   }
 
   // Метод для бронирования слота
