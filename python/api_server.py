@@ -34,22 +34,50 @@ async def chat_endpoint(request: ChatRequest):
         # 1. Извлекаем информацию из сообщения и обновляем контекст
         updated_context = extract_info_from_message(request.message, request.context)
         logger.info(f"Updated context: {updated_context}")
-        
+
+        # 1.5. Обработка приветствий
+        if updated_context.get('is_greeting'):
+            greeting_response = "Здравствуйте! Я помогу вам разобраться с вопросами банкротства. Можете уточнить примерную сумму долга?"
+            # Убираем флаг приветствия
+            updated_context.pop('is_greeting', None)
+            response = ChatResponse(
+                response=greeting_response,
+                session_state="collecting_info",
+                context_updates=updated_context,
+                next_question="Можете уточнить примерную сумму долга?",
+                completion_status="collecting"
+            )
+            logger.info(f"Sending greeting response to {request.whatsapp_id}")
+            return response
+
         # 2. Проверяем достаточно ли информации для финального ответа
         if has_sufficient_info(updated_context):
             # У нас есть вся необходимая информация - генерируем финальный ответ через RAG
             
+            # Расчет типа банкротства
+            mrp_2025 = 3692
+            debt_limit = 1600 * mrp_2025  # 5,907,200 тенге
+            debt_amount = updated_context.get('debt_amount', 0)
+
+            bankruptcy_type = "внесудебного" if debt_amount <= debt_limit else "судебного"
+
             # Создаем контекстуальный запрос для RAG
             context_query = f"""
             ИТОГОВАЯ КОНСУЛЬТАЦИЯ по банкротству для клиента:
-            - Сумма долга: {updated_context.get('debt_amount', 'не указана')} тенге
+            - Сумма долга: {debt_amount} тенге
             - Срок просрочки: {updated_context.get('overdue_months', 'не указан')} месяцев
             - Официальный доход: {'есть' if updated_context.get('has_income') else 'нет' if updated_context.get('has_income') is False else 'не указан'}
             - Недвижимость: {'есть' if updated_context.get('has_property') else 'нет' if updated_context.get('has_property') is False else 'не указана'}
             - Автомобиль: {'есть' if updated_context.get('has_car') else 'нет' if updated_context.get('has_car') is False else 'не указан'}
 
+            РАСЧЕТ ТИПА БАНКРОТСТВА:
+            - МРП в 2025 году: {mrp_2025} тенге
+            - Лимит для внесудебного банкротства: 1600 МРП = {debt_limit:,} тенге
+            - Долг клиента: {debt_amount:,} тенге
+            - Рекомендуемый тип: {bankruptcy_type} банкротство
+
             Создай финальный ответ по структуре из документации:
-            1. Краткий анализ и рекомендуемая процедура банкротства
+            1. Краткий анализ и рекомендуемая процедура {bankruptcy_type} банкротства (с правильным обоснованием по МРП)
             2. Рекомендация записаться к адвокату Мухтарову Торехану с упоминанием кнопки
             3. Ссылки на учебные материалы
             4. Техническое уведомление о передаче данных и ограничениях бота
