@@ -54,7 +54,12 @@ def extract_info_from_message(message, existing_context=None):
     """Извлекает структурированную информацию из сообщения пользователя"""
     if existing_context is None:
         existing_context = {}
-    
+
+    # Получаем последний заданный вопрос для контекста
+    last_question = ""
+    if existing_context.get('questionsAsked'):
+        last_question = existing_context['questionsAsked'][-1]
+
     extraction_prompt = ChatPromptTemplate.from_template("""
 Извлеки из сообщения пользователя следующую информацию о банкротстве (если есть):
 
@@ -69,7 +74,13 @@ def extract_info_from_message(message, existing_context=None):
 - employment_type: тип занятости (pension/government/unemployed/self_employed/null)
 - intent: что хочет пользователь (bankruptcy_check/procedure_info/consultation/null)
 
-ВАЖНО: Если пользователь отвечает "нет" на вопрос о недвижимости или говорит про аренду - это has_property: false
+КОНТЕКСТ: Последний заданный вопрос был: "{last_question}"
+
+ВАЖНО для коротких ответов:
+- Если был вопрос о доходе и пользователь отвечает "нет"/"нету" -> has_income: false
+- Если был вопрос о недвижимости и пользователь отвечает "нет"/"нету" -> has_property: false
+- Если был вопрос о машине и пользователь отвечает "нет" -> has_car: false
+- Учитывай контекст вопроса при интерпретации коротких ответов
 
 Примеры:
 "долг 5 млн" -> {{"debt_amount": 5000000}}
@@ -88,7 +99,7 @@ JSON:""")
     
     try:
         extraction_chain = extraction_prompt | llm | StrOutputParser()
-        result = extraction_chain.invoke({"message": message})
+        result = extraction_chain.invoke({"message": message, "last_question": last_question})
         
         # Пытаемся парсить JSON
         try:
@@ -188,7 +199,28 @@ def format_amount(amount):
 def has_sufficient_info(context):
     """Проверяет достаточно ли информации для ответа"""
     required = ['debt_amount', 'overdue_months', 'has_income', 'has_property']
-    return all(field in context and context[field] is not None for field in required)
+
+    # Проверяем наличие всех обязательных полей с реальными значениями
+    for field in required:
+        if field not in context or context[field] is None:
+            return False
+
+    # Дополнительная проверка - были ли заданы все необходимые вопросы
+    questions_asked = context.get('questionsAsked', [])
+    question_text = ' '.join(questions_asked).lower()
+
+    required_topics = ['долг', 'месяц', 'доход', 'недвижимость']
+    missing_topics = []
+
+    for topic in required_topics:
+        if topic not in question_text:
+            missing_topics.append(topic)
+
+    # Если есть пропущенные темы, информации недостаточно
+    if missing_topics:
+        return False
+
+    return True
 
 
 # 1. DECOMPOSITION - COMMENTED OUT
