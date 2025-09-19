@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
-from query import query, extract_info_from_message, check_missing_info, generate_contextual_question, has_sufficient_info
+from query import query
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -31,18 +31,11 @@ async def chat_endpoint(request: ChatRequest):
     try:
         logger.info(f"Received message from {request.whatsapp_id}: {request.message}")
         
-        # 1. Извлекаем информацию из сообщения и обновляем контекст
-        logger.info(f"Context before extraction: {request.context}")
-        updated_context = extract_info_from_message(request.message, request.context)
-        logger.info(f"Updated context: {updated_context}")
-        logger.info(f"Has_property value: {updated_context.get('has_property', 'KEY_NOT_FOUND')}")
-        logger.info(f"Has_income value: {updated_context.get('has_income', 'KEY_NOT_FOUND')}")
-
-        # 1.5. Обработка приветствий
-        if updated_context.get('is_greeting'):
+        # 1. Обработка приветствий
+        greetings = ['здравствуй', 'привет', 'добрый день', 'добрый вечер', 'доброе утро', 'здорово', 'hi', 'hello', 'хочу на консультацию', 'консультация']
+        if any(greeting in request.message.lower() for greeting in greetings):
+            updated_context = {"question_step": 1, "answers": []}
             greeting_response = "Здравствуйте! Я помогу вам разобраться с вопросами банкротства. Можете уточнить примерную сумму долга?"
-            # Убираем флаг приветствия
-            updated_context.pop('is_greeting', None)
             response = ChatResponse(
                 response=greeting_response,
                 session_state="collecting_info",
@@ -53,20 +46,65 @@ async def chat_endpoint(request: ChatRequest):
             logger.info(f"Sending greeting response to {request.whatsapp_id}")
             return response
 
-        # 2. Проверяем достаточно ли информации для финального ответа
-        if has_sufficient_info(updated_context):
-            # У нас есть вся необходимая информация - отправляем все данные в RAG для анализа
+        # 2. Проверка на ИП в любом ответе
+        if any(ip_word in request.message.lower() for ip_word in ['ип', 'индивидуальный предприниматель', 'ип статус', 'предприниматель']):
+            ip_response = "К сожалению, если у вас есть статус ИП (индивидуального предпринимателя), банкротство как физическое лицо недоступно. Рекомендую обратиться к адвокату Мухтарову Торехану для консультации по вашим вариантам."
+            response = ChatResponse(
+                response=ip_response,
+                session_state="answered",
+                context_updates=request.context,
+                next_question=None,
+                completion_status="complete"
+            )
+            logger.info(f"IP status detected for {request.whatsapp_id}")
+            return response
 
-            # Формируем запрос с параметрами клиента для RAG системы
+        # 3. Последовательный сбор ответов
+        updated_context = request.context.copy()
+        current_step = updated_context.get('question_step', 1)
+        answers = updated_context.get('answers', [])
+
+        # Сохраняем ответ пользователя
+        if current_step > 1:  # Не сохраняем приветствие
+            answers.append(request.message)
+            updated_context['answers'] = answers
+
+        # Определяем следующий вопрос
+        questions = [
+            "Можете уточнить примерную сумму долга?",
+            "Как давно не платите по долгам? Сколько месяцев?",
+            "Расскажите о вашей работе и доходах.",
+            "Есть ли у вас недвижимость или имущество?"
+        ]
+
+        if current_step <= 4:
+            # Задаем следующий вопрос
+            next_question = questions[current_step - 1]
+            updated_context['question_step'] = current_step + 1
+
+            response = ChatResponse(
+                response=next_question,
+                session_state="collecting_info",
+                context_updates=updated_context,
+                next_question=next_question,
+                completion_status="collecting"
+            )
+            logger.info(f"Asking question {current_step} to {request.whatsapp_id}")
+            return response
+
+        # 4. Все вопросы заданы - анализируем ответы через RAG
+        if len(answers) >= 4:
+            # Формируем запрос с полными ответами клиента для RAG системы
             client_data = f"""
-Консультация по банкротству для клиента с параметрами:
-- Сумма долга: {updated_context.get('debt_amount', 0)} тенге
-- Срок просрочки: {updated_context.get('overdue_months', 'не указан')} месяцев
-- Официальный доход: {'есть' if updated_context.get('has_income') else 'нет' if updated_context.get('has_income') is False else 'не указан'}
-- Недвижимость: {'есть' if updated_context.get('has_property') else 'нет' if updated_context.get('has_property') is False else 'не указана'}
-- Автомобиль: {'есть' if updated_context.get('has_car') else 'нет' if updated_context.get('has_car') is False else 'не указан'}
+Консультация по банкротству для клиента.
 
-Определи тип банкротства и создай финальную консультацию согласно документации.
+ОТВЕТЫ КЛИЕНТА НА ВОПРОСЫ:
+1. Сумма долга: {answers[0]}
+2. Срок просрочки: {answers[1]}
+3. Работа и доходы: {answers[2]}
+4. Недвижимость и имущество: {answers[3]}
+
+Проанализируй ответы клиента, определи подходящий тип банкротства и создай развернутую консультацию согласно документации.
 """
 
             # Получаем полный ответ из RAG системы с анализом документов
@@ -79,22 +117,17 @@ async def chat_endpoint(request: ChatRequest):
                 next_question=None,
                 completion_status="complete"
             )
-        
-        else:
-            # Нужно задать уточняющий вопрос
-            missing_info = check_missing_info(updated_context)
-            next_question = generate_contextual_question(missing_info, updated_context)
-            
-            response = ChatResponse(
-                response=next_question,
-                session_state="collecting_info",
-                context_updates=updated_context,
-                next_question=next_question,
-                completion_status="collecting"
-            )
-        
-        logger.info(f"Sending response to {request.whatsapp_id}: {response.response[:100]}...")
-        return response
+            return response
+
+        # Если что-то пошло не так
+        error_response = ChatResponse(
+            response="Произошла ошибка в обработке запроса. Попробуйте начать сначала.",
+            session_state="error",
+            context_updates={},
+            next_question=None,
+            completion_status="error"
+        )
+        return error_response
         
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
