@@ -334,11 +334,17 @@ prompt = ChatPromptTemplate.from_template(template)
 
 # Query
 def query(user_query):
+    print(f"{Fore.CYAN}=== QUERY FUNCTION CALLED ==={Fore.RESET}")
+    print(f"{Fore.YELLOW}User query: {user_query[:200]}...{Fore.RESET}")
+
     # generate optimized answer for a given query using the improved subqueries
     sub_questions = generate_sub_questions(user_query)
     generate_qa_pairs(sub_questions)
     answers, questions = retrieve_and_rag(prompt_rag, sub_questions)
     context = format_qa_pairs(questions, answers)
+
+    print(f"{Fore.GREEN}Retrieved context length: {len(context)} chars{Fore.RESET}")
+    print(f"{Fore.GREEN}Context preview: {context[:300]}...{Fore.RESET}")
 
     final_rag_chain = (
         prompt
@@ -346,6 +352,8 @@ def query(user_query):
         | StrOutputParser()
     )
 
-    return final_rag_chain.invoke({"question": user_query, "context": context})
+    result = final_rag_chain.invoke({"question": user_query, "context": context})
+    print(f"{Fore.CYAN}=== QUERY RESULT GENERATED ==={Fore.RESET}")
+    return result
 
     
