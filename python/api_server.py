@@ -32,8 +32,11 @@ async def chat_endpoint(request: ChatRequest):
         logger.info(f"Received message from {request.whatsapp_id}: {request.message}")
         
         # 1. Извлекаем информацию из сообщения и обновляем контекст
+        logger.info(f"Context before extraction: {request.context}")
         updated_context = extract_info_from_message(request.message, request.context)
         logger.info(f"Updated context: {updated_context}")
+        logger.info(f"Has_property value: {updated_context.get('has_property', 'KEY_NOT_FOUND')}")
+        logger.info(f"Has_income value: {updated_context.get('has_income', 'KEY_NOT_FOUND')}")
 
         # 1.5. Обработка приветствий
         if updated_context.get('is_greeting'):
